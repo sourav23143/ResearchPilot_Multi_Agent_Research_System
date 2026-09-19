@@ -1,0 +1,53 @@
+
+# -------------------------
+# LangChain Core Framework
+# -------------------------
+langchain==1.4.2
+langgraph==1.2.11
+
+# -------------------------
+# OpenAI Integration
+# -------------------------
+langchain-openai==1.6.2
+langchain_mistralai 
+openai
+mistral
+
+
+# -------------------------
+# Tavily Web Search
+# -------------------------
+langchain-tavily==0.2.18
+tavily-python==0.8.4
+
+# -------------------------
+# Web Scraping
+# -------------------------
+beautifulsoup4
+requests
+lxml
+
+# -------------------------
+# Environment Variables
+# -------------------------
+python-dotenv
+
+# -------------------------
+# Data Validation / Schemas
+# -------------------------
+pydantic
+
+# -------------------------
+# HTTP / Async Support
+# -------------------------
+httpx
+
+# -------------------------
+# Logging / CLI Output
+# -------------------------
+rich
+
+# -------------------------
+# Observability / Tracing
+# -------------------------
+langsmith
