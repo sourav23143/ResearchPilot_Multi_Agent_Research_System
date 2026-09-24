@@ -181,7 +181,7 @@ Multi_Agent_Research_System/
 
 | File | Lines | Purpose |
 |---|---|---|
-| **`app.py`** | ~508 | The Streamlit web application. Contains all custom CSS styling (dark theme with glassmorphism), UI layout with two columns (input + pipeline tracker), pipeline execution logic with spinners, results display with expanders, and a download button for the final report. |
+| **`app.py`** | Streamlit app | The ResearchPilot workspace with live four-stage cards, separate raw search/scrape output and agent summaries, report and review tabs, session history, and Markdown export. |
 | **`agents.py`** | ~79 | Defines the LLM (`gpt-4o-mini`), two ReAct agents (`build_search_agent`, `build_reader_agent`), and two LCEL chains (`writer_chain`, `critic_chain`) with their respective prompt templates. |
 | **`tools.py`** | ~38 | Implements two LangChain `@tool`-decorated functions: `web_search` (Tavily API wrapper returning top-5 results) and `scrape_url` (HTTP GET + BeautifulSoup HTML cleanup). |
 | **`pipeline.py`** | ~76 | A standalone CLI script that runs the same 4-step pipeline without Streamlit, printing results to the terminal. Useful for testing and debugging. |

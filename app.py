@@ -1,3 +1,4 @@
+import html
 import re
 from datetime import datetime
 
@@ -45,7 +46,7 @@ st.markdown(
         border-right: 1px solid var(--line);
     }
     [data-testid="stSidebar"] > div:first-child { padding-top: 1.3rem; }
-    .block-container { max-width: 1220px; padding: 2.2rem 2.3rem 4rem; }
+    .block-container { max-width: 1500px; padding: 2.2rem 2.6rem 4rem; }
     h1, h2, h3 { font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -.025em; }
     h1 { font-size: clamp(2.4rem, 5vw, 4rem) !important; line-height: 1.04 !important; }
     h2 { font-size: 1.65rem !important; }
@@ -137,6 +138,22 @@ st.markdown(
     .sidebar-step { color:#a9b8cd; padding:.38rem 0; font-size:.9rem; }
     .sidebar-step span { color:var(--mint); font-weight:700; margin-right:.5rem; }
     .result-heading { color:#ecf4ff; font:700 1.08rem 'Space Grotesk',sans-serif; margin-bottom:.5rem; }
+    .agent-card {
+        min-height: 142px; padding: 1rem 1rem .9rem; border-radius: 15px;
+        background: rgba(19, 29, 47, .82); border: 1px solid var(--line);
+        border-top: 2px solid rgba(159,183,215,.18);
+    }
+    .agent-card.running { border-top-color: #66b8ff; box-shadow: 0 0 25px rgba(74,156,220,.08); }
+    .agent-card.complete { border-top-color: #85e0c1; }
+    .agent-card.failed { border-top-color: #ff8b8b; }
+    .agent-number { color:#8092aa; font:600 .7rem 'Space Grotesk',sans-serif; letter-spacing:.12em; }
+    .agent-title { color:#edf4fc; font:700 1rem 'Space Grotesk',sans-serif; margin:.45rem 0 .28rem; }
+    .agent-state { color:#91a0b5; font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; }
+    .agent-state.running { color:#83ceff; }
+    .agent-state.complete { color:#85e0c1; }
+    .agent-state.failed { color:#ff9a9a; }
+    .agent-preview { color:#9aabc1; font-size:.79rem; line-height:1.45; margin-top:.65rem; }
+    .raw-caption { color:#8192a8; font-size:.82rem; }
     .empty-state {
         padding:2rem; border:1px dashed rgba(159,183,215,.22); border-radius:16px;
         text-align:center; color:#8e9db2; background:rgba(17,29,47,.38);
@@ -191,8 +208,65 @@ def friendly_error(error, stage):
     return f"{stage} stopped because one of its services returned an error. You can retry after checking the details below."
 
 
-def word_count(text):
-    return len(re.findall(r"\b[\w'-]+\b", text or ""))
+def tool_output(agent_result, expected_tool):
+    """Return the raw content from a named tool message in an agent result."""
+    messages = agent_result.get("messages", []) if isinstance(agent_result, dict) else []
+    outputs = []
+    for message in messages:
+        if isinstance(message, dict):
+            message_type = message.get("type") or message.get("role")
+            name = message.get("name")
+            content = message.get("content")
+        else:
+            message_type = getattr(message, "type", None)
+            name = getattr(message, "name", None)
+            content = getattr(message, "content", None)
+        if message_type == "tool" and name == expected_tool:
+            text = content_to_text(content)
+            if text.strip():
+                outputs.append(text)
+    return "\n\n".join(outputs)
+
+
+AGENT_INFO = [
+    ("search", "01", "Search Agent", "Finds relevant web sources"),
+    ("reader", "02", "Reader Agent", "Scrapes a useful source"),
+    ("writer", "03", "Writer Agent", "Drafts the research report"),
+    ("critic", "04", "Critic Agent", "Reviews the report"),
+]
+
+
+def render_agent_cards(container, states, results):
+    previews = {
+        "search": content_to_text(results.get("search_summary", "")),
+        "reader": content_to_text(results.get("reader_summary", "")),
+        "writer": content_to_text(results.get("writer", "")),
+        "critic": content_to_text(results.get("critic", "")),
+    }
+    labels = {
+        "waiting": "Waiting",
+        "running": "Working now",
+        "complete": "Complete",
+        "failed": "Needs attention",
+    }
+    with container.container():
+        columns = st.columns(4)
+        for column, (key, number, title, description) in zip(columns, AGENT_INFO):
+            state = states.get(key, "waiting")
+            preview = re.sub(r"\s+", " ", previews.get(key, "")).strip()
+            if len(preview) > 120:
+                preview = preview[:117].rstrip() + "…"
+            summary = html.escape(preview or description)
+            css_state = state if state in {"running", "complete", "failed"} else ""
+            with column:
+                st.markdown(
+                    f"<div class='agent-card {css_state}'>"
+                    f"<div class='agent-number'>STAGE {number}</div>"
+                    f"<div class='agent-title'>{title}</div>"
+                    f"<div class='agent-state {css_state}'>{labels.get(state, 'Waiting')}</div>"
+                    f"<div class='agent-preview'>{summary}</div></div>",
+                    unsafe_allow_html=True,
+                )
 
 
 for key, default in {
@@ -202,6 +276,7 @@ for key, default in {
     "history": [],
     "run_error": None,
     "run_error_details": None,
+    "agent_states": {"search": "waiting", "reader": "waiting", "writer": "waiting", "critic": "waiting"},
 }.items():
     st.session_state.setdefault(key, default)
 
@@ -228,7 +303,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.divider()
-    st.caption("Your model and search credentials are read from the project’s `.env` file.")
 
     if st.session_state.history:
         st.markdown("#### Recent research")
@@ -240,6 +314,9 @@ with st.sidebar:
                 st.session_state.topic_input = item["topic"]
                 st.session_state.active_topic = item["topic"]
                 st.session_state.results = item["results"]
+                st.session_state.agent_states = {
+                    "search": "complete", "reader": "complete", "writer": "complete", "critic": "complete"
+                }
                 st.session_state.run_error = None
                 st.session_state.run_error_details = None
                 st.rerun()
@@ -280,6 +357,8 @@ with st.container(border=True):
         with right:
             submitted = st.form_submit_button("Start research  →", use_container_width=True)
 
+agent_display = st.empty()
+
 if submitted:
     if not topic.strip():
         st.warning("Enter a research question to get started.")
@@ -288,11 +367,17 @@ if submitted:
         st.session_state.results = {}
         st.session_state.run_error = None
         st.session_state.run_error_details = None
+        st.session_state.agent_states = {
+            "search": "waiting", "reader": "waiting", "writer": "waiting", "critic": "waiting"
+        }
+        render_agent_cards(agent_display, st.session_state.agent_states, {})
         results = {}
         stage = "Search"
         progress = st.progress(0, text="Preparing your research workspace…")
         try:
             with st.status("01 · Searching the web", expanded=False) as status:
+                st.session_state.agent_states["search"] = "running"
+                render_agent_cards(agent_display, st.session_state.agent_states, results)
                 search_agent = build_search_agent()
                 search_result = search_agent.invoke({
                     "messages": [(
@@ -300,47 +385,66 @@ if submitted:
                         f"Find recent, reliable, detailed information about: {st.session_state.active_topic}",
                     )]
                 })
-                results["search"] = content_to_text(search_result["messages"][-1].content)
-                if not results["search"].strip():
+                results["search_raw"] = tool_output(search_result, "web_search")
+                results["search_summary"] = content_to_text(search_result["messages"][-1].content)
+                if not results["search_raw"] and not results["search_summary"].strip():
                     raise RuntimeError("The search agent returned no readable text.")
+                st.session_state.agent_states["search"] = "complete"
                 st.session_state.results = dict(results)
+                render_agent_cards(agent_display, st.session_state.agent_states, results)
                 status.update(label="01 · Web research gathered", state="complete")
             progress.progress(25, text="Web research gathered")
 
             stage = "Reader"
             with st.status("02 · Reading a relevant source", expanded=False) as status:
+                st.session_state.agent_states["reader"] = "running"
+                render_agent_cards(agent_display, st.session_state.agent_states, results)
                 reader_agent = build_reader_agent()
+                search_context = results.get("search_raw") or results.get("search_summary", "")
                 reader_result = reader_agent.invoke({
                     "messages": [(
                         "user",
                         f"For the topic '{st.session_state.active_topic}', choose the most relevant URL "
                         f"from these results and scrape it for useful detail.\n\n"
-                        f"Search results:\n{results['search'][:5000]}",
+                        f"Search results:\n{search_context[:5000]}",
                     )]
                 })
-                results["reader"] = content_to_text(reader_result["messages"][-1].content)
+                results["scraped_raw"] = tool_output(reader_result, "scrape_url")
+                results["reader_summary"] = content_to_text(reader_result["messages"][-1].content)
+                st.session_state.agent_states["reader"] = "complete"
                 st.session_state.results = dict(results)
+                render_agent_cards(agent_display, st.session_state.agent_states, results)
                 status.update(label="02 · Source read", state="complete")
             progress.progress(50, text="Source read")
 
             stage = "Writer"
             with st.status("03 · Drafting your report", expanded=False) as status:
+                st.session_state.agent_states["writer"] = "running"
+                render_agent_cards(agent_display, st.session_state.agent_states, results)
                 research = (
-                    f"SEARCH RESULTS:\n{results['search'][:6000]}\n\n"
-                    f"DETAILED SOURCE CONTENT:\n{results['reader'][:6000]}"
+                    f"RAW SEARCH TOOL RESULTS:\n{results.get('search_raw', '')[:5000]}\n\n"
+                    f"SEARCH AGENT SUMMARY:\n{results.get('search_summary', '')[:2500]}\n\n"
+                    f"RAW SCRAPED PAGE TEXT:\n{results.get('scraped_raw', '')[:4000]}\n\n"
+                    f"READER AGENT SUMMARY:\n{results.get('reader_summary', '')[:2500]}"
                 )
                 results["writer"] = writer_chain.invoke({
                     "topic": st.session_state.active_topic,
                     "research": research,
                 })
+                st.session_state.agent_states["writer"] = "complete"
                 st.session_state.results = dict(results)
+                render_agent_cards(agent_display, st.session_state.agent_states, results)
                 status.update(label="03 · Report drafted", state="complete")
             progress.progress(75, text="Report drafted")
 
             stage = "Critic"
             with st.status("04 · Reviewing the report", expanded=False) as status:
+                st.session_state.agent_states["critic"] = "running"
+                render_agent_cards(agent_display, st.session_state.agent_states, results)
                 results["critic"] = critic_chain.invoke({"report": results["writer"]})
+                st.session_state.agent_states["critic"] = "complete"
                 st.session_state.results = dict(results)
+                render_agent_cards(agent_display, st.session_state.agent_states, results)
                 status.update(label="04 · Review complete", state="complete")
             progress.progress(100, text="Research complete")
 
@@ -354,7 +458,12 @@ if submitted:
                 *[item for item in st.session_state.history if item["topic"] != history_item["topic"]],
             ][:5]
             st.success("Your research report is ready.")
+            agent_display.empty()
         except Exception as error:
+            failed_key = {"Search": "search", "Reader": "reader", "Writer": "writer", "Critic": "critic"}.get(stage)
+            if failed_key:
+                st.session_state.agent_states[failed_key] = "failed"
+            render_agent_cards(agent_display, st.session_state.agent_states, results)
             st.session_state.results = dict(results)
             st.session_state.run_error = friendly_error(error, stage)
             st.session_state.run_error_details = str(error)
@@ -369,59 +478,84 @@ if st.session_state.run_error:
 results = st.session_state.results
 if results:
     st.divider()
-    st.subheader("Research workspace")
-    st.markdown(f"**Question:** {st.session_state.active_topic}")
+    st.caption(f"Research question · {st.session_state.active_topic}")
 
-    search_text = content_to_text(results.get("search", ""))
-    reader_text = content_to_text(results.get("reader", ""))
+    search_raw = content_to_text(results.get("search_raw", ""))
+    search_summary = content_to_text(results.get("search_summary", results.get("search", "")))
+    scraped_raw = content_to_text(results.get("scraped_raw", ""))
+    reader_summary = content_to_text(results.get("reader_summary", results.get("reader", "")))
     report_text = content_to_text(results.get("writer", ""))
     critic_text = content_to_text(results.get("critic", ""))
-    urls = find_urls(search_text, reader_text, report_text)
+    urls = find_urls(search_raw, search_summary, scraped_raw, reader_summary, report_text)
     score_match = re.search(r"score\s*:\s*(\d+(?:\.\d+)?)\s*/\s*10", critic_text, re.IGNORECASE)
 
-    metrics = st.columns(3)
-    metrics[0].metric("Sources found", len(urls))
-    metrics[1].metric("Report length", f"{word_count(report_text):,} words")
-    metrics[2].metric("Critic score", f"{score_match.group(1)}/10" if score_match else "—")
+    st.markdown("## Final Research Report")
+    if report_text:
+        st.markdown(report_text)
+        st.download_button(
+            "Download report (.md)",
+            data=f"# ResearchPilot — {st.session_state.active_topic}\n\n{report_text}\n",
+            file_name=f"researchpilot_{re.sub(r'[^a-z0-9]+', '-', st.session_state.active_topic.lower()).strip('-')[:48] or 'report'}.md",
+            mime="text/markdown",
+            key="download_report",
+        )
+    else:
+        st.info("The report is not available yet. Check the pipeline message above.")
 
-    report_tab, sources_tab, reading_tab, review_tab = st.tabs(
-        ["Report", "Sources", "Source notes", "Critic review"]
-    )
-    with report_tab:
-        if report_text:
-            st.markdown(report_text)
-            st.download_button(
-                "Download report (.md)",
-                data=f"# ResearchPilot — {st.session_state.active_topic}\n\n{report_text}\n",
-                file_name=f"researchpilot_{re.sub(r'[^a-z0-9]+', '-', st.session_state.active_topic.lower()).strip('-')[:48] or 'report'}.md",
-                mime="text/markdown",
-                key="download_report",
+    st.divider()
+    st.markdown("## Critic Review")
+    if critic_text:
+        st.markdown(critic_text)
+    else:
+        st.info("The critic review is not available yet.")
+
+    with st.expander("Agent overview and raw research", expanded=False):
+        metrics = st.columns(4)
+        metrics[0].metric("Sources found", len(urls))
+        metrics[1].metric("Search output", f"{len(search_raw):,} chars")
+        metrics[2].metric("Scraped text", f"{len(scraped_raw):,} chars")
+        metrics[3].metric("Critic score", f"{score_match.group(1)}/10" if score_match else "—")
+
+        st.markdown('<div class="soft-label">Your four-stage research team</div>', unsafe_allow_html=True)
+        render_agent_cards(st.container(), st.session_state.agent_states, results)
+        overview_tab, search_tab, scrape_tab = st.tabs(
+            ["Agent overview", "Raw search", "Raw scrape"]
+        )
+        with overview_tab:
+            st.markdown("#### Search Agent summary")
+            st.markdown(search_summary or "Search summary is not available yet.")
+            st.markdown("#### Reader Agent summary")
+            st.markdown(reader_summary or "Reader summary is not available yet.")
+            if urls:
+                st.markdown("#### Sources identified")
+                for index, url in enumerate(urls, start=1):
+                    st.markdown(f"{index}. [{url}]({url})")
+
+        with search_tab:
+            st.markdown("#### Search Agent summary")
+            st.markdown(search_summary or "No search summary was returned.")
+            st.markdown("#### Raw `web_search` tool response")
+            st.markdown(
+                "<div class='raw-caption'>Direct output from the web search tool, before the Search Agent summarizes it.</div>",
+                unsafe_allow_html=True,
             )
-        else:
-            st.info("The report is not available yet. Check the pipeline message above.")
+            if search_raw:
+                st.code(search_raw, language=None)
+            else:
+                st.info("No raw web_search tool message was captured for this run.")
 
-    with sources_tab:
-        if urls:
-            st.markdown("Sources identified in the research output:")
-            for index, url in enumerate(urls, start=1):
-                st.markdown(f"{index}. [{url}]({url})")
-        elif search_text:
-            st.info("No source links were detected. Review the search output below for any citations.")
-        if search_text:
-            with st.expander("Full search output", expanded=not urls):
-                st.markdown(search_text)
-
-    with reading_tab:
-        if reader_text:
-            st.markdown(reader_text)
-        else:
-            st.info("The source-reading step did not produce content.")
-
-    with review_tab:
-        if critic_text:
-            st.markdown(critic_text)
-        else:
-            st.info("The critic review is not available yet.")
+        with scrape_tab:
+            st.markdown("#### Reader Agent summary")
+            st.markdown(reader_summary or "No reader summary was returned.")
+            st.markdown("#### Raw `scrape_url` tool response")
+            st.markdown(
+                "<div class='raw-caption'>Page text returned by the scraper, before the Reader Agent summarizes it.</div>",
+                unsafe_allow_html=True,
+            )
+            if scraped_raw:
+                st.code(scraped_raw, language=None)
+            else:
+                st.info("No raw scrape_url tool message was captured for this run.")
 
     if st.session_state.history:
         st.caption(f"Saved in this session · {st.session_state.history[0]['created_at']}")
