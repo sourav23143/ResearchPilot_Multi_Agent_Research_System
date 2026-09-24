@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.30%2B-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-1C3C3C?logo=langchain&logoColor=white)](https://www.langchain.com/)
-[![Mistral](https://img.shields.io/badge/Mistral-MistralAI-4611A0?logo=mistral&logoColor=white)](https://mistral.ai/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o--mini-412991?logo=openai&logoColor=white)](https://openai.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
@@ -54,9 +54,10 @@ Instead of relying on a single LLM prompt, ResearchPilot breaks the research tas
 | 📄 **Smart Web Scraping** | Automatically identifies and scrapes the most relevant URLs for deeper content |
 | ✍️ **Structured Report Writing** | Generates professional, well-structured research reports with introduction, findings, conclusions, and sources |
 | 🧐 **AI Critic Review** | Provides an honest score (X/10), strengths, improvement areas, and a one-line verdict |
-| 🎨 **Premium Dark UI** | Beautifully designed dark-mode interface with glassmorphism, gradients, and micro-animations |
+| 🎨 **ResearchPilot Dark UI** | Dark Streamlit workspace with a full-width report and critic review, plus collapsible agent details |
 | ⬇️ **Export Reports** | Download the final research report as a Markdown file |
-| ⚡ **Real-time Pipeline Tracking** | Visual step-by-step progress indicators showing which agent is currently active |
+| ⚡ **Pipeline Tracking** | Follow the four research stages while a run is in progress |
+| 🔎 **Research Transparency** | Open the agent overview and inspect the raw search and scraped page output |
 
 ---
 
@@ -136,27 +137,27 @@ By decomposing the task, each agent can be prompted with laser-focused instructi
 ### Agent 1: Search Agent (`build_search_agent`)
 
 - **Type**: LangChain ReAct Agent with tool access
-- **Model**: Mistral AI via `langchain_mistralai`
+- **Model**: OpenAI `gpt-4o-mini` via `langchain_openai`
 - **Tool**: `web_search` — wraps the [Tavily Search API](https://tavily.com/)
 - **Behavior**: Given a topic, it autonomously decides to invoke the search tool, processes the results, and returns structured search findings (titles, URLs, snippets) for up to 5 results.
 
 ### Agent 2: Reader Agent (`build_reader_agent`)
 
 - **Type**: LangChain ReAct Agent with tool access
-- **Model**: Mistral AI via `langchain_mistralai`
+- **Model**: OpenAI `gpt-4o-mini` via `langchain_openai`
 - **Tool**: `scrape_url` — uses `requests` + `BeautifulSoup` to scrape & clean web content
 - **Behavior**: Receives the search results, identifies the most relevant URL, and scrapes its full content. HTML is cleaned by removing `<script>`, `<style>`, `<nav>`, and `<footer>` tags. Output is capped at 3,000 characters to stay within token limits.
 
 ### Chain 3: Writer Chain (`writer_chain`)
 
 - **Type**: LangChain LCEL Chain (Prompt → LLM → Output Parser)
-- **Model**: Mistral AI via `langchain_mistralai`
+- **Model**: OpenAI `gpt-4o-mini` via `langchain_openai`
 - **Behavior**: Takes the combined research data (search results + scraped content) and produces a detailed, professional research report following a fixed structure: Introduction → Key Findings (≥3 points) → Conclusion → Sources.
 
 ### Chain 4: Critic Chain (`critic_chain`)
 
 - **Type**: LangChain LCEL Chain (Prompt → LLM → Output Parser)
-- **Model**: Mistral AI via `langchain_mistralai`
+- **Model**: OpenAI `gpt-4o-mini` via `langchain_openai`
 - **Behavior**: Reviews the generated report and provides a structured evaluation: a numeric score out of 10, bullet-point strengths, bullet-point improvement areas, and a one-line verdict.
 
 > **Note**: Agents 1 & 2 are LangChain _agents_ (they can autonomously decide when and how to use tools). Chains 3 & 4 are deterministic _chains_ (fixed prompt → LLM → parser pipeline with no tool usage).
@@ -166,13 +167,13 @@ By decomposing the task, each agent can be prompted with laser-focused instructi
 ## 📁 Project Structure
 
 ```
-Multi_Agent_Research_System/
+ResearchPilot_Multi_Agent_Research_System/
 ├── app.py              # Streamlit web UI — main entry point
 ├── agents.py           # Agent & chain definitions (search, reader, writer, critic)
 ├── tools.py            # LangChain tools (web_search, scrape_url)
 ├── pipeline.py         # CLI pipeline runner (alternative to the Streamlit UI)
 ├── requirements.txt    # Python dependencies
-├── .env.example        # Template for required environment variables
+├── .env.example        # Safe template for local API keys
 ├── .gitignore          # Git ignore rules
 └── README.md           # This file
 ```
@@ -181,8 +182,8 @@ Multi_Agent_Research_System/
 
 | File | Lines | Purpose |
 |---|---|---|
-| **`app.py`** | Streamlit app | The ResearchPilot workspace with live four-stage cards, separate raw search/scrape output and agent summaries, report and review tabs, session history, and Markdown export. |
-| **`agents.py`** | ~79 | Defines the LLM (`gpt-4o-mini`), two ReAct agents (`build_search_agent`, `build_reader_agent`), and two LCEL chains (`writer_chain`, `critic_chain`) with their respective prompt templates. |
+| **`app.py`** | Streamlit app | The ResearchPilot workspace with run progress, a full-width report and critic review, expandable agent summaries and raw search/scrape output, session history, and Markdown export. |
+| **`agents.py`** | Agent and chain definitions | Defines the active OpenAI `gpt-4o-mini` model, two ReAct agents (`build_search_agent`, `build_reader_agent`), and two LCEL chains (`writer_chain`, `critic_chain`). |
 | **`tools.py`** | ~38 | Implements two LangChain `@tool`-decorated functions: `web_search` (Tavily API wrapper returning top-5 results) and `scrape_url` (HTTP GET + BeautifulSoup HTML cleanup). |
 | **`pipeline.py`** | ~76 | A standalone CLI script that runs the same 4-step pipeline without Streamlit, printing results to the terminal. Useful for testing and debugging. |
 
@@ -192,7 +193,7 @@ Multi_Agent_Research_System/
 
 | Category | Technology | Purpose |
 |---|---|---|
-| **LLM** | [Mistral AI](https://mistral.ai/) | Powers all agents and chains |
+| **LLM** | [OpenAI](https://openai.com/) (`gpt-4o-mini`) | Active model for the agents and report/review chains |
 | **Agent Framework** | [LangChain](https://www.langchain.com/) | Agent orchestration, prompt templates, LCEL chains |
 | **Web Search** | [Tavily API](https://tavily.com/) | Fast, reliable web search optimized for LLMs |
 | **Web Scraping** | [BeautifulSoup4](https://beautiful-soup-4.readthedocs.io/) + [Requests](https://requests.readthedocs.io/) | HTML parsing and content extraction |
@@ -207,7 +208,7 @@ Multi_Agent_Research_System/
 ### Prerequisites
 
 - **Python 3.10+** installed on your system
-- **Mistral API key** — from your Mistral provider dashboard
+- **OpenAI API key** — from the [OpenAI API platform](https://platform.openai.com/api-keys)
 - **Tavily API key** — [Get one here (free tier available)](https://tavily.com/)
 - **Git** installed
 
@@ -215,8 +216,8 @@ Multi_Agent_Research_System/
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/sourav23143/Multi_Agent_Research_System.git
-   cd Multi_Agent_Research_System
+   git clone https://github.com/sourav23143/ResearchPilot_Multi_Agent_Research_System.git
+   cd ResearchPilot_Multi_Agent_Research_System
    ```
 
 2. **Create and activate a virtual environment** (recommended):
@@ -235,23 +236,24 @@ Multi_Agent_Research_System/
    pip install -r requirements.txt
    ```
 
-   > **Note**: You also need Streamlit. If not in requirements.txt, install separately:
-   > ```bash
-   > pip install streamlit
-   > ```
-
 ### Configuration
 
-1. **Copy the environment template**:
+Copy `.env.example` to `.env` in the project root, then replace the placeholders with your API keys:
+   ```powershell
+   # Windows PowerShell
+   Copy-Item .env.example .env
+   ```
    ```bash
+   # macOS/Linux
    cp .env.example .env
    ```
-
-2. **Edit `.env`** and fill in your API keys:
+   Edit `.env` so it contains:
    ```env
-   MISTRAL_API_KEY=mr-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   OPENAI_API_KEY=your-openai-api-key
    TAVILY_API_KEY=tvly-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```
+
+The active model is set in `agents.py`. Keep `.env` private; it is excluded by `.gitignore`. The committed `.env.example` contains placeholders only.
 
 ### Running the App
 
@@ -259,7 +261,7 @@ Multi_Agent_Research_System/
 ```bash
 streamlit run app.py
 ```
-This opens a beautiful dark-themed web interface at `http://localhost:8501`.
+This opens the ResearchPilot dark-themed web interface at `http://localhost:8501`.
 
 #### Option 2: Command-Line Interface
 ```bash
@@ -273,13 +275,11 @@ This runs the same pipeline in your terminal with rich-formatted output.
 
 1. **Launch** the Streamlit app with `streamlit run app.py`
 2. **Enter** a research topic in the input field (e.g., _"Quantum computing breakthroughs in 2026"_)
-3. **Click** the "⚡ Run Research Pipeline" button
-4. **Watch** the pipeline progress through all four stages in real-time
-5. **Review** the results:
-   - Expand raw search results and scraped content for transparency
-   - Read the full research report
-   - Check the critic's score and feedback
-6. **Download** the report as a Markdown (`.md`) file
+3. **Click** **Start research**
+4. **Follow** the four-stage pipeline as it searches, reads, writes, and reviews
+5. **Read** the full-width final report and critic review
+6. **Expand** **Agent overview and raw research** to see all four agents, their summaries, and raw search and scrape output
+7. **Download** the report as a Markdown (`.md`) file
 
 ### Example Topics to Try
 
@@ -318,7 +318,7 @@ Defines four AI components:
 
 1. **`build_search_agent()`** — Creates a ReAct agent with the `web_search` tool
 2. **`build_reader_agent()`** — Creates a ReAct agent with the `scrape_url` tool
-3. **`writer_chain`** — An LCEL chain: `ChatPromptTemplate → MistralAI → StrOutputParser`
+3. **`writer_chain`** — An LCEL chain: `ChatPromptTemplate → ChatOpenAI → StrOutputParser`
 4. **`critic_chain`** — An LCEL chain with a structured evaluation prompt
 
 The agents use `langchain.agents.create_agent()` which creates a ReAct-style agent that can reason about when and how to use its tools.
@@ -336,26 +336,26 @@ def run_research_pipeline(topic: str) -> dict:
 
 ### `app.py` — The Interface
 
-The largest file (~508 lines), responsible for:
+The Streamlit interface is responsible for:
 
-- **Custom CSS** (~290 lines): Dark theme with orange accents, glassmorphism cards, custom-styled inputs/buttons, step progress indicators, and result panels
-- **Step Card Component** (`step_card()`): A reusable function that renders pipeline step indicators with waiting/running/done states
-- **Pipeline Execution**: Runs the 4 agents sequentially using Streamlit spinners, with `st.session_state` tracking progress
-- **Results Display**: Expandable raw outputs, the final formatted report (rendered as native Markdown), the critic feedback panel, and a download button
+- **Dark ResearchPilot styling** and the research question form
+- **Pipeline progress** while the search, reader, writer, and critic stages run
+- **Results display** with the full-width report first and the critic review below it
+- **Expandable research details** with all four agent cards, summaries, raw search and scrape output, and source links
+- **Session history** and Markdown report downloads
 
 ---
 
 ## 🔑 API Keys Setup
 
-### Mistral AI API Key
+### OpenAI API Key
 
-1. Go to your Mistral AI provider dashboard
+1. Open the [OpenAI API keys page](https://platform.openai.com/api-keys)
 2. Sign in or create an account
-3. Create a new API key
-4. Copy the key
-5. Add it to your `.env` file
+3. Create and copy an API key
+4. Add it to `OPENAI_API_KEY` in your local `.env` file
 
-> **Note**: This project uses `langchain_mistralai.ChatMistralAI`.
+The active model is `gpt-4o-mini`, configured in `agents.py` through `langchain_openai.ChatOpenAI`.
 
 ### Tavily API Key
 
@@ -390,7 +390,7 @@ Contributions are welcome! Here's how you can help:
 
 ### Ideas for Contribution
 
-- [ ] Add support for more LLM providers (Anthropic, Google Gemini, Ollama)
+- [ ] Enable and document alternative LLM providers
 - [ ] Implement parallel agent execution for faster results
 - [ ] Add a "Refine" step where the Writer rewrites based on Critic feedback
 - [ ] Support PDF export in addition to Markdown
@@ -404,7 +404,7 @@ Contributions are welcome! Here's how you can help:
 
 
 - **LangChain**: For the powerful agent and chain abstractions
-- **Mistral AI**: For `langchain_mistralai.ChatMistralAI`
+- **OpenAI**: For the active `langchain_openai.ChatOpenAI` model integration
 - **Tavily**: For the search API
 - **Streamlit**: For making web app development effortless
 
@@ -418,7 +418,7 @@ This project is open-source and available under the [MIT License](LICENSE).
 
 <div align="center">
 
-**Built with ❤️ using LangChain, Mistral AI, and Streamlit**
+**Built with ❤️ using LangChain, OpenAI, Tavily, and Streamlit**
 
 _If this project helped you, consider giving it a ⭐!_
 
