@@ -1,23 +1,43 @@
 from langchain.agents import create_agent
 from langchain_mistralai import ChatMistralAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from tools import web_search ,  scrape_url
 import os
 from dotenv import load_dotenv
+from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 load_dotenv()
 
 #model setup
-llm = ChatMistralAI(model = "mistral-small-2506", temperature=0)
+llm = ChatOpenAI(model = "gpt-4o-mini",temperature=0)
 
-
+# llm = ChatMistralAI(model = "mistral-small-2603", temperature=0)
+# llm = ChatGroq(
+#     model="qwen/qwen3.8-27b",
+#     temperature=0,
+# )
+# llm = ChatGoogleGenerativeAI(
+#     model="gemini-3.7-flash",
+#     temperature=0,
+# )
 
 #1st agent
 def build_search_agent():
     return create_agent(
         model = llm,
         tools = [web_search]
+    )
+# def build_search_agent():
+    return create_agent(
+        model=llm,
+        tools=[web_search],
+        system_prompt=(
+            "Use web_search for research."
+            "Never send cursor, id, or URL."
+        ),
     )
 
 #2nd agent

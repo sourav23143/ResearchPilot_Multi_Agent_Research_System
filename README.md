@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔬 ResearchWorks — Multi-Agent AI Research System
+# 🔬 ResearchPilot — Multi-Agent AI Research System
 
 ### _Four specialized AI agents collaborate to deliver polished research reports on any topic._
 
@@ -42,9 +42,9 @@
 
 ## 🌟 Overview
 
-**ResearchWorks** is an AI-powered multi-agent research system that automates the entire research workflow — from searching the web, scraping relevant content, drafting a structured report, to providing critical feedback — all orchestrated through an elegant Streamlit web interface.
+**ResearchPilot** is an AI-powered multi-agent research system that automates the entire research workflow — from searching the web, scraping relevant content, drafting a structured report, to providing critical feedback — all orchestrated through an elegant Streamlit web interface.
 
-Instead of relying on a single LLM prompt, ResearchWorks breaks the research task into **four specialized agents**, each responsible for one phase of the pipeline. This modular approach produces higher-quality, more reliable, and better-structured research output compared to monolithic prompting.
+Instead of relying on a single LLM prompt, ResearchPilot breaks the research task into **four specialized agents**, each responsible for one phase of the pipeline. This modular approach produces higher-quality, more reliable, and better-structured research output compared to monolithic prompting.
 
 ### ✨ Key Features
 
@@ -62,7 +62,7 @@ Instead of relying on a single LLM prompt, ResearchWorks breaks the research tas
 
 ## 🏗 Architecture & How It Works
 
-ResearchWorks follows a **sequential multi-agent pipeline** pattern. Each agent completes its task before passing results downstream to the next agent. This mimics how a real research team operates:
+ResearchPilot follows a **sequential multi-agent pipeline** pattern. Each agent completes its task before passing results downstream to the next agent. This mimics how a real research team operates:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

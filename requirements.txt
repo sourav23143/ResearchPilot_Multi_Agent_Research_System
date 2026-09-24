@@ -6,10 +6,12 @@ langchain==1.4.2
 langgraph==1.2.11
 
 # -------------------------
-# OpenAI Integration
+# LLM  Integration
 # -------------------------
 langchain-openai==1.6.2
 langchain_mistralai 
+langchain-groq
+langchain_google_genai
 openai
 mistral
 
@@ -51,3 +53,6 @@ rich
 # Observability / Tracing
 # -------------------------
 langsmith
+
+
+streamlit
